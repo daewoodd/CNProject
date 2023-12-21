@@ -1,0 +1,149 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
+#define PORT 8888
+
+SSL_CTX* create_server_context() {
+    SSL_CTX* ctx;
+
+    // Initialize the SSL library
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    SSL_load_error_strings();
+    ctx = SSL_CTX_new(TLS_server_method());
+
+    // Load server certificate and private key
+    if (SSL_CTX_use_certificate_file(ctx, "/home/Saad/CN Project/server.crt", SSL_FILETYPE_PEM) <= 0) {
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    if (SSL_CTX_use_PrivateKey_file(ctx, "/home/Saad/CN Project/server.key", SSL_FILETYPE_PEM) <= 0) {
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    return ctx;
+}
+
+void handle_command(SSL* ssl, const char* command) {
+    char response[256];
+
+    // Print the received command
+    printf("Received command: %s\n", command);
+
+    if (strcmp(command, "echo") == 0) {
+        SSL_write(ssl, "Enter message to echo: ", strlen("Enter message to echo: "));
+        SSL_read(ssl, response, sizeof(response));
+        SSL_write(ssl, response, strlen(response));
+    } else if (strcmp(command, "ls") == 0) {
+        FILE* ls_output = popen("ls", "r");
+        fread(response, 1, sizeof(response), ls_output);
+        SSL_write(ssl, response, strlen(response));
+        pclose(ls_output);
+    } else if (strcmp(command, "pwd") == 0) {
+        FILE* pwd_output = popen("pwd", "r");
+        fread(response, 1, sizeof(response), pwd_output);
+        SSL_write(ssl, response, strlen(response));
+        pclose(pwd_output);
+    } else if (strcmp(command, "whoami") == 0) {
+        FILE* whoami_output = popen("whoami", "r");
+        fread(response, 1, sizeof(response), whoami_output);
+        SSL_write(ssl, response, strlen(response));
+        pclose(whoami_output);
+    } else if (strcmp(command, "date") == 0) {
+        FILE* date_output = popen("date", "r");
+        fread(response, 1, sizeof(response), date_output);
+        SSL_write(ssl, response, strlen(response));
+        pclose(date_output);
+    } else {
+        SSL_write(ssl, "Invalid command", strlen("Invalid command"));
+    }
+	
+	// Clear the command buffer
+    memset(command, 0, sizeof(command));
+}
+
+void run_server(SSL_CTX* ctx) {
+    int server_fd, client_fd;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t addr_len = sizeof(client_addr);
+
+    // Create a socket
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd == -1) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Initialize server address structure
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
+
+    // Bind the socket
+    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+        perror("Binding failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Listen for incoming connections
+    if (listen(server_fd, 10) == -1) {
+        perror("Listening failed");
+        exit(EXIT_FAILURE);
+    }
+
+    while (1) {
+        // Accept a connection inside the loop
+        client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &addr_len);
+        if (client_fd == -1) {
+            perror("Acceptance failed");
+            exit(EXIT_FAILURE);
+        }
+
+        // Set up the SSL connection
+        SSL* ssl = SSL_new(ctx);
+        SSL_set_fd(ssl, client_fd);
+
+        if (SSL_accept(ssl) <= 0) {
+            ERR_print_errors_fp(stderr);
+        } else {
+            char command[256];
+
+            // Receive command from the client
+            SSL_read(ssl, command, sizeof(command));
+
+            // Print the received command (added for debugging)
+            printf("Received command: %s\n", command);
+
+            // Handle the received command
+            handle_command(ssl, command);
+
+            // Clean up
+            SSL_shutdown(ssl);
+            SSL_free(ssl);
+        }
+
+        // Close the accepted socket inside the loop
+        close(client_fd);
+    }
+
+    close(server_fd);
+}
+
+
+int main() {
+    SSL_CTX* ctx = create_server_context();
+    run_server(ctx);
+
+    // Clean up the SSL library
+    SSL_CTX_free(ctx);
+    EVP_cleanup();
+    return 0;
+}

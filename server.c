@@ -14,6 +14,14 @@ json_object* objB;
 json_object* objC;
 json_object* objD;
 
+void print_ASCII(const char* to_print)
+{
+	printf("ASCII values for the entered command:\n");
+	for (int i = 0; i <= strlen(to_print); ++i) {
+		printf("%c: %d\n", to_print[i], to_print[i]);
+	}
+}
+
 SSL_CTX* create_server_context() {
     SSL_CTX* ctx;
 
@@ -55,7 +63,7 @@ void create_json_objects() {
     json_object_object_add(objD, "data", json_object_new_array());
 
     // Add a large array of integers to obj4
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 10; ++i) {
         json_object_array_add(json_object_object_get(objD, "data"), json_object_new_int(i));
     }
 }
@@ -65,12 +73,16 @@ void send_json_object(SSL* ssl, const char* json_object_name) {
 
     // Determine which JSON object to send based on the requested name
     if (strcmp(json_object_name, "objA") == 0) {
+		printf("\nObject A \n");
         requested_obj = objA;
     } else if (strcmp(json_object_name, "objB") == 0) {
+		printf("\nObject B \n");
         requested_obj = objB;
     } else if (strcmp(json_object_name, "objC") == 0) {
+		printf("\nObject C \n");
         requested_obj = objC;
     } else if (strcmp(json_object_name, "objD") == 0) {
+		printf("\nObject D \n");
         requested_obj = objD;
     } else {
         SSL_write(ssl, "Invalid JSON object name", strlen("Invalid JSON object name"));
@@ -79,7 +91,9 @@ void send_json_object(SSL* ssl, const char* json_object_name) {
 
     // Convert the requested JSON object to a string
     const char* json_str = json_object_to_json_string_ext(requested_obj, JSON_C_TO_STRING_PRETTY);
+	printf("JSON string to be sent:\n%s\n", json_str);
 
+	
     // Send the JSON string to the client
     SSL_write(ssl, json_str, strlen(json_str));
 }
@@ -183,7 +197,10 @@ void run_server(SSL_CTX* ctx) {
 
             // Print the received command (added for debugging)
             printf("Received command: %s\n", command);
-
+			
+			// Print ASCII values for each character in the command
+			print_ASCII(command);
+			
             // Handle the received command
             handle_command(ssl, command);
 
@@ -203,6 +220,7 @@ void run_server(SSL_CTX* ctx) {
 
 int main() {
     SSL_CTX* ctx = create_server_context();
+	create_json_objects();
     run_server(ctx);
 
     // Clean up the SSL library

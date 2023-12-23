@@ -9,6 +9,14 @@
 
 #define PORT 8888
 
+void print_ASCII(const char* to_print)
+{
+	printf("ASCII values for the entered command:\n");
+	for (int i = 0; i <= strlen(to_print); ++i) {
+		printf("%c: %d\n", to_print[i], to_print[i]);
+	}
+}
+
 SSL_CTX* create_client_context() {
     SSL_CTX* ctx;
 
@@ -33,7 +41,7 @@ SSL_CTX* create_client_context() {
 }
 
 void send_command(SSL* ssl, const char* command) {
-    SSL_write(ssl, command, strlen(command));
+    SSL_write(ssl, command, (strlen(command) + 1));
 }
 
 
@@ -50,7 +58,30 @@ void receive_response(SSL* ssl) {
     // Null-terminate the received data
     response[total_received] = '\0';
 
-    printf("Server Response:\n%s\n", response);
+    // Check if the received data is "null"
+    if (strcmp(response, "null") == 0) {
+        printf("Received null response\n");
+        return;
+    }
+
+    // Check if the received data is a JSON object
+    if (strstr(response, "{") != NULL) {
+        // It's a JSON object, parse it and display
+        struct json_object* received_obj = json_tokener_parse(response);
+        const char* pretty_json_str = json_object_to_json_string_ext(received_obj, JSON_C_TO_STRING_PRETTY);
+        printf("Received JSON object:\n%s\n", pretty_json_str);
+        json_object_put(received_obj);  // Release the parsed JSON object
+    } else {
+        // It's a regular string, print it
+        printf("Server Response:\n%s\n", response);
+    }
+}
+
+void remove_newline(char *str) {
+    size_t length = strlen(str);
+    if (length > 0 && str[length - 1] == '\n') {
+        str[length - 1] = '\0';
+    }
 }
 
 void run_client(SSL_CTX* ctx) {
@@ -89,12 +120,10 @@ void run_client(SSL_CTX* ctx) {
         printf("Enter command: ");
         fgets(command, sizeof(command), stdin);
 
-        // Remove the newline character from the command
-        size_t command_length = strlen(command);
-        if (command_length > 0 && command[command_length - 1] == '\n') {
-            command[command_length - 1] = '\0';
-        }
+		//print_ASCII(command);
 
+        remove_newline(command);
+		
         // Send the command to the server
         send_command(ssl, command);
 

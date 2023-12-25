@@ -8,6 +8,7 @@
 #include <openssl/err.h>
 
 #define PORT 8888
+#define SVADD "127.0.0.1"
 
 json_object* objA;
 json_object* objB;
@@ -160,7 +161,7 @@ void run_server(SSL_CTX* ctx) {
     // Initialize server address structure
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_addr.s_addr = inet_addr(SVADD);
     server_addr.sin_port = htons(PORT);
 
     // Bind the socket
@@ -182,6 +183,10 @@ void run_server(SSL_CTX* ctx) {
             perror("Acceptance failed");
             exit(EXIT_FAILURE);
         }
+		else
+		{
+			printf("\n-------------------- CONNECTION ACCEPTED ---------------------\n");
+		}
 
         // Set up the SSL connection
         SSL* ssl = SSL_new(ctx);
@@ -207,6 +212,8 @@ void run_server(SSL_CTX* ctx) {
             // Clean up
             SSL_shutdown(ssl);
             SSL_free(ssl);
+			
+			printf("\n-------------------- CONNECTION TERMINATED ---------------------\n");
         }
 
         // Close the accepted socket inside the loop

@@ -7,7 +7,8 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-#define PORT 8888
+#define PORT 8888	// port of server
+#define SVADD "127.0.0.1"	// port of client
 
 void print_ASCII(const char* to_print)
 {
@@ -98,7 +99,7 @@ void run_client(SSL_CTX* ctx) {
     // Initialize server address structure
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server_addr.sin_addr.s_addr = inet_addr(SVADD);	//server IP address
     server_addr.sin_port = htons(PORT);
 
     // Connect to the server
